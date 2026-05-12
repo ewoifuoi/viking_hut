@@ -20,7 +20,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
-#define GLM_FORCE_RADIANS
 #define DEBUG_LEVEL 3
 
 constexpr uint32_t WIDTH = 800;
@@ -34,6 +33,7 @@ const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
 
+// swapchain扩展:用于准备 Image, 实现双重缓冲与三重缓冲,获取新画布以及present
 const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
@@ -56,11 +56,12 @@ struct Vertex {
     glm::vec3 pos;
     glm::vec4 color;
 
+    // 获取处理顶点时的 步长
     static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
-        bindingDescription.binding = 0;
-        bindingDescription.stride = sizeof(Vertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        bindingDescription.binding = 0;//绑定号
+        bindingDescription.stride = sizeof(Vertex);//计算前面pos+color的大小作为对齐步长: 28字节
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//没处理一个顶点移动一个步长
         return bindingDescription;
     }
 
