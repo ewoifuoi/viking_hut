@@ -65,7 +65,8 @@ struct Vertex {
         return bindingDescription;
     }
 
-    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+    // 每个 28 字节内部数据分布
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() { // 有两部分数据(属性)
         std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
