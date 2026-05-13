@@ -117,7 +117,7 @@ class VulkanCube {
 public:
 
     void run() {
-        initWindow();
+        initWindow();//用GLFW创建一个窗口
         initVulkan();
         mainLoop();
         cleanup();
@@ -160,11 +160,12 @@ private:
     bool framebufferResized = false;
     
     void initVulkan() {
-        createInstance();
+        createInstance(); // 创建vulkan的instance(添加glfw的extension和validation layer)
         setupDebugMessenger();
-        createSurface();
-        pickPhysicalDevice();
+        createSurface(); // surface用来绑定vulkan instance和window
+        pickPhysicalDevice();// 挑选一个最合适的显卡
         createLogicalDevice();
+
         createSwapChain();
         createImageViews();
         createRenderPass();
@@ -172,26 +173,27 @@ private:
         createDescriptorSetLayout();
         createGraphicsPipeline();
         createFramebuffers();
+
         createCommandPool();
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffers();
         createDescriptorPool();
         createDescriptorSets();
+
         createCommandBuffer();
         createSyncObjects();
     }
 
     void initWindow() {
-        glfwInit();
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwInit(); //加载ddl, 初始化计时器和输入设备
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // 声明不创建OpenGL上下文
 
-        glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
+        glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE); // 指定窗口背景为透明
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "triangle", nullptr, nullptr);
-        glfwSetWindowUserPointer(window, this);
-        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+        window = glfwCreateWindow(WIDTH, HEIGHT, "vulkan", nullptr, nullptr);// 创建窗口获得窗口句柄
+        glfwSetWindowUserPointer(window, this);// 把 this指针塞进 window 对象
+        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);// 注册:窗口大小改变回调函数
     }
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -223,7 +225,7 @@ private:
 
     void createInstance() {
 
-        VkApplicationInfo appInfo = {};
+        VkApplicationInfo appInfo = {};// 通知显卡信息便于特定优化(可以不写)
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = "vulkan cube";
         appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -235,7 +237,7 @@ private:
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
 
-        auto extensions = getRequiredExtensions();
+        auto extensions = getRequiredExtensions();// 获取 instance 的 extension (swapchain是device的extension)
         createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
         createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -412,6 +414,7 @@ private:
     }
 
     void pickPhysicalDevice() {
+        // 首先获取所有显卡的handle
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
