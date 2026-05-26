@@ -462,7 +462,7 @@ private:
         return indices;
     }
 
-    void createLogicalDevice() {
+    void createLogicalDevice() { // 创建逻辑设备 vkDevice
 
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
