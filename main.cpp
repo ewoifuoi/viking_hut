@@ -164,7 +164,7 @@ private:
         setupDebugMessenger();
         createSurface(); // surface用来绑定vulkan instance和window
         pickPhysicalDevice();// 挑选一个最合适的显卡
-        createLogicalDevice();
+        createLogicalDevice();// 创建逻辑设备, 获取graphics queue 和 present queue
 
         createSwapChain();
         createImageViews();
@@ -562,11 +562,17 @@ private:
     }
 
     void createSwapChain() {
+        // 首先查询当前物理设备对这个窗口表面 swapchain 的支持情况 : 
+        // capabilities (extent) : 最大最小 Image 数量,当前窗口尺寸,支持的 transform
+        // formats : 图像格式和颜色空间
+        // presentModes : 支持的显示模式(垂直同步) : FIFO, MAILBOX, IMMEDIATE
         SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
 
         VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-        VkPresentModeKHR presentModes = choosePresentMode(swapChainSupport.presentModes);
+        VkPresentModeKHR presentMode = choosePresentMode(swapChainSupport.presentModes);
         VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+
+        std::cout <<"extent:"<<"height:"<< extent.height << " width:" << extent.width << std::endl;
 
         uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
         if(swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
@@ -577,14 +583,15 @@ private:
 
         VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = surface;
+        createInfo.surface = surface; // 将 swapchain 绑定 surface
         createInfo.minImageCount = imageCount;
-        createInfo.imageFormat = surfaceFormat.format;
-        createInfo.imageColorSpace = surfaceFormat.colorSpace;
-        createInfo.imageExtent = extent;
-        createInfo.imageArrayLayers = 1;
-        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        createInfo.imageFormat = surfaceFormat.format;// 像素格式
+        createInfo.imageColorSpace = surfaceFormat.colorSpace; // 色彩空间
+        createInfo.imageExtent = extent;// 宽和高
+        createInfo.imageArrayLayers = 1;// swapchain image的数组层数
+        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;// 这些image会被用作颜色附件(直接把渲染结果画在这些image上)
 
+        // 处理present queue 和 graphics queue不一样的情况
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
         uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
@@ -599,7 +606,7 @@ private:
             createInfo.pQueueFamilyIndices = nullptr;
         }
 
-        createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+        createInfo.preTransform = swapChainSupport.capabilities.currentTransform; // 手机可能要横屏旋转
 
         // 查找支持的透明混合模式
         VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -614,7 +621,7 @@ private:
         // 应用混合模式
         createInfo.compositeAlpha = compositeAlpha;
 
-        createInfo.presentMode = presentModes;
+        createInfo.presentMode = presentMode;
         createInfo.clipped = VK_TRUE;
 
         createInfo.oldSwapchain = oldSwapchain;
