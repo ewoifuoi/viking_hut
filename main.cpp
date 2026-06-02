@@ -61,7 +61,7 @@ struct Vertex {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;//绑定号
         bindingDescription.stride = sizeof(Vertex);//计算前面pos+color的大小作为对齐步长: 28字节
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//没处理一个顶点移动一个步长
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//每处理一个顶点移动一个步长
         return bindingDescription;
     }
 
@@ -566,6 +566,9 @@ private:
         // capabilities (extent) : 最大最小 Image 数量,当前窗口尺寸,支持的 transform
         // formats : 图像格式和颜色空间
         // presentModes : 支持的显示模式(垂直同步) : FIFO, MAILBOX, IMMEDIATE
+        // 最后会创建一个 swapChainImages (VkImage的集合)
+        // vkAckquireNextImageKHR() 获取下一张可渲染图像
+        // vkQueuePresentKHR() 把图像提交到屏幕
         SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
 
         VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -643,29 +646,28 @@ private:
 
     }
 
-    void createImageViews() {
+    void createImageViews() { // 为 SwapchainImages 创建每一个 Image
         swapChainImageViews.resize(swapChainImages.size());
         for(size_t i = 0; i < swapChainImages.size(); i++) {
             VkImageViewCreateInfo createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
             createInfo.image = swapChainImages[i];
-            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            createInfo.format = swapChainImageFormat;
+            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D; // 指定是 2D 图像
+            createInfo.format = swapChainImageFormat; // 上个函数保存的色彩格式
             createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
             createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
             createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
             createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 
-            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            createInfo.subresourceRange.baseMipLevel = 0;
-            createInfo.subresourceRange.levelCount = 1;
-            createInfo.subresourceRange.baseArrayLayer = 0;
-            createInfo.subresourceRange.layerCount = 1;
+            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;// 此处区分颜色图像/深度图像/模板图像
+            createInfo.subresourceRange.baseMipLevel = 0;// 指定从第0层 mipmap 开始
+            createInfo.subresourceRange.levelCount = 1;// 这个imageView 只覆盖一个 mip level
+            createInfo.subresourceRange.baseArrayLayer = 0;// 指定从数组层第0层开始
+            createInfo.subresourceRange.layerCount = 1;// 指定 view 覆盖1个array layer
 
             if(VK_SUCCESS != vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i])) {
                 throw std::runtime_error("failed to create image views!");
             }
-
         }
     }
 
