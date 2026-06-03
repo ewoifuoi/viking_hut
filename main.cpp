@@ -166,8 +166,8 @@ private:
         pickPhysicalDevice();// 挑选一个最合适的显卡
         createLogicalDevice();// 创建逻辑设备, 获取graphics queue 和 present queue
 
-        createSwapChain();
-        createImageViews();
+        createSwapChain(); // 创建swapChain, 得到一组Images (即数据载体)
+        createImageViews(); // 每个Image绑定一个Image View, 即如何处理数据
         createRenderPass();
 
         createDescriptorSetLayout();
@@ -835,22 +835,22 @@ private:
     }
 
     void createRenderPass() {
-        VkAttachmentDescription colorAttachment{};
-        colorAttachment.format = swapChainImageFormat;
-        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        VkAttachmentDescription colorAttachment{};// 这个 attachment 对应render pass里用到的图像目标 (此时是swapchain Image)
+        colorAttachment.format = swapChainImageFormat;// 复用之前保存的Image的format
+        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;//采样数
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;// render pass开始时如何处理这张 attachment的原有内容
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;// render pass 后如何处理渲染的结果
         colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;// render pass开始前, 这个attachment期望的布局
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;// render pass结束后, 这个Image要变成present engine可以使用的布局
 
         VkAttachmentReference colorAttachmentRef{};
-        colorAttachmentRef.attachment = 0;
-        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachmentRef.attachment = 0;// 第0个引用
+        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;//在subpass期间使用颜色附件的最佳布局
 
-        VkSubpassDescription subpass{};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        VkSubpassDescription subpass{};// 一个render pass 可以有多个subpass, 此时只有颜色渲染
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;// 分为图形管线和计算管线
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &colorAttachmentRef;
 
