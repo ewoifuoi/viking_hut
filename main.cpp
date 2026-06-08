@@ -171,8 +171,8 @@ private:
         createRenderPass(); // 指定渲染目的地和子过程(要不要提前清空屏幕)
 
         createDescriptorSetLayout();// 资源描述符的布局, 告诉shader资源在哪里(uniform buffer)
-        createGraphicsPipeline();
-        createFramebuffers();
+        createGraphicsPipeline();// 创建图形管线
+        createFramebuffers();// 将ImageView与render pass中的attachment一一绑定, 实现抽象attachment的实例化
 
         createCommandPool();
         createVertexBuffer();
@@ -871,20 +871,21 @@ private:
     }
 
     void createFramebuffers() {
+        // 绑定 render pass 的attachment和 image view
         swapChainFramebuffers.resize(swapChainImageViews.size());
 
         for(size_t i = 0; i < swapChainImageViews.size(); i++) {
             VkImageView attachments[] = {
                 swapChainImageViews[i]
-            };
+            };// 因为render pass中只有1个attachment, 所以这个数组里也只添加了一个ImageView, 它们需要一一对应
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
             framebufferInfo.renderPass = renderPass;
             framebufferInfo.attachmentCount = 1;
             framebufferInfo.pAttachments = attachments;
-            framebufferInfo.width = swapChainExtent.width;
+            framebufferInfo.width = swapChainExtent.width;// 这里的尺寸 framebuffer要覆盖整张swapchain image
             framebufferInfo.height = swapChainExtent.height;
-            framebufferInfo.layers = 1;
+            framebufferInfo.layers = 1;// 2D 层数为1
 
             if(VK_SUCCESS != vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i])) {
                 throw std::runtime_error("failed to create framebuffer");
