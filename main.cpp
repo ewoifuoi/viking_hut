@@ -168,9 +168,9 @@ private:
 
         createSwapChain(); // 创建swapChain, 得到一组Images (即数据载体)
         createImageViews(); // 每个Image绑定一个Image View, 即如何处理数据
-        createRenderPass();
+        createRenderPass(); // 指定渲染目的地和子过程(要不要提前清空屏幕)
 
-        createDescriptorSetLayout();
+        createDescriptorSetLayout();// 资源描述符的布局, 告诉shader资源在哪里(uniform buffer)
         createGraphicsPipeline();
         createFramebuffers();
 
@@ -673,6 +673,7 @@ private:
 
     void createGraphicsPipeline() {
 
+        //读取shader字节码
         auto vertShaderCode = readFile("../shaders/shader.vert.spv");
         auto fragShaderCode = readFile("../shaders/shader.frag.spv");
 
@@ -693,76 +694,70 @@ private:
 
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
+        // viewport 和 scissor 在record command buffer时动态设置的, 避免窗口改变重新创建graphics pipeline
         std::vector<VkDynamicState> dynamicStates = {
             VK_DYNAMIC_STATE_VIEWPORT,
             VK_DYNAMIC_STATE_SCISSOR
         };
+        // 作为动态阶段, 数值在绘制前再给
         VkPipelineDynamicStateCreateInfo dynamicState{};
         dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
         dynamicState.pDynamicStates = dynamicStates.data();
 
+        // 描述vertex buffer的内存结构
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-        auto bindingDescription = Vertex::getBindingDescription();
-        auto attributeDescriptions = Vertex::getAttributeDescriptions();
+        auto bindingDescription = Vertex::getBindingDescription();// 顶点数据起点在哪每部迈多大
+        auto attributeDescriptions = Vertex::getAttributeDescriptions();// 每个顶点数据内部如何分布
         
         vertexInputInfo.vertexBindingDescriptionCount = 1;
         vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
         vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
         vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
+        // 如何把 顶点 组装成 图元
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        inputAssembly.primitiveRestartEnable = VK_FALSE;
+        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;// 每三个顶点组装成一个独立三角形
 
-        VkViewport viewport{};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = (float) swapChainExtent.width;
-        viewport.height = (float) swapChainExtent.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
 
-        VkRect2D scissor{};
-        scissor.offset = {0, 0};
-        scissor.extent = swapChainExtent;
-
+        // 因为启用了动态 viewport和scissor, 实际数值在command buffer中设置, 这里不设置
         VkPipelineViewportStateCreateInfo viewportState{};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         viewportState.viewportCount = 1;
-        viewportState.pViewports = &viewport;
         viewportState.scissorCount = 1;
-        viewportState.pScissors = &scissor;
 
+        //将图元光栅化成 fragment
         VkPipelineRasterizationStateCreateInfo rasterizer{};
         rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        rasterizer.depthClampEnable = VK_FALSE;
-        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-        rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        rasterizer.depthClampEnable = VK_FALSE; // false为深度超出裁剪
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;// 填充三角形 (也可以设置为线框模式)
+        rasterizer.lineWidth = 1.0f;// 线宽, 无法大于1 (需要设备支持)
+        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;//开启背面剔除
+        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;//空间里顶点逆时针排列的三角形是正面
+        rasterizer.depthBiasEnable = VK_FALSE;// depth bias 用于 shadow map
 
-        rasterizer.depthBiasEnable = VK_FALSE;
-
+        // 多重采样
+        // 需要与render pass中的color attachment的sample count匹配
         VkPipelineMultisampleStateCreateInfo multisampling{};
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        multisampling.sampleShadingEnable = VK_FALSE;
-        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisampling.sampleShadingEnable = VK_FALSE;// 不开启多重采样抗锯齿
+        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;// 每个像素代表一个sample
         multisampling.minSampleShading = 1.0f;
 
+        // Color blend
         VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-        colorBlendAttachment.blendEnable = VK_TRUE; 
-        
-        // 加法混合：源颜色 * 源Alpha + 目标颜色 * 1.0
+        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;// 决定哪些颜色通道允许写入framebuffer
+        colorBlendAttachment.blendEnable = VK_TRUE;// 开启颜色混合
+        // 开启blending后, 最终颜色由 fragment shader 当前输出 + color attachment中已有颜色 按规则混合得到
+        // 加法混合：
+        // final.rgb = src.rgb * src.a + dst.rgb
+        // final.a = src.a * 1.0 + dst.a * 0.0 (直接取fragment shader输出的alpha)
         colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
         colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-        
         colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
         colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
         colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
@@ -773,21 +768,20 @@ private:
         colorBlending.attachmentCount = 1;
         colorBlending.pAttachments = &colorBlendAttachment;
 
+        // 这个descriptor 即用于访问之前的uniform buffer
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-
         pipelineLayoutInfo.setLayoutCount = 1;
         pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-
         if(VK_SUCCESS != vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout)) {
             throw std::runtime_error("failed to create pipeline layout!");
         }
 
+        // 组装所有阶段
         VkGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pipelineInfo.stageCount = 2;
+        pipelineInfo.stageCount = 2; // 有两个 shader stage
         pipelineInfo.pStages = shaderStages;
-
         pipelineInfo.pVertexInputState = &vertexInputInfo;
         pipelineInfo.pInputAssemblyState = &inputAssembly;
         pipelineInfo.pViewportState = &viewportState;
@@ -799,7 +793,7 @@ private:
 
         pipelineInfo.layout = pipelineLayout;
         pipelineInfo.renderPass = renderPass;
-        pipelineInfo.subpass = 0;
+        pipelineInfo.subpass = 0;// 指定了这个pipeline要在第0个subpass中使用
 
         if(VK_SUCCESS != vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline)) {
             throw std::runtime_error("failed to create graphics pipeline!");
@@ -1186,11 +1180,17 @@ private:
     }
 
     void createDescriptorSetLayout() {
+        // 和 uniform buffer 有关, shader 访问GPU资源时用的资源信息描述记录, 分为
+        // - uniform buffer descriptor
+        // - image sampler descriptor
+        // 创建 graphics pipeline 时, 需要知道 shader 会使用哪些 descriptor set, 每个set有哪些binding
+        // uniform buffer 常用于 : MVP 矩阵, 光照参数, 材质常量, 少量全局参数
+        // descriptor 存在的意义是为了让运行在 GPU 中的shader通过set和binding找到对应的资源
         VkDescriptorSetLayoutBinding uboLayoutBinding{};
-        uboLayoutBinding.binding = 0;
+        uboLayoutBinding.binding = 0;// 指定了 binding=0
         uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboLayoutBinding.descriptorCount = 1;
-        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        uboLayoutBinding.descriptorCount = 1;// 注 : binding也可以是数组, 这里就会大于1
+        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;// 这个descriptor只能被vertex shader访问
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layoutInfo.bindingCount = 1;
