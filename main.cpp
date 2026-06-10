@@ -174,9 +174,9 @@ private:
         createGraphicsPipeline();// 创建图形管线
         createFramebuffers();// 将ImageView与render pass中的attachment一一绑定, 实现抽象attachment的实例化
 
-        createCommandPool();
-        createVertexBuffer();
-        createIndexBuffer();
+        createCommandPool();// 创建 command pool需要指定 queue family
+        createVertexBuffer();// 把系统内存中创建的vertices上传到GPU显存 vertexBuffer中
+        createIndexBuffer();// 创建index buffer, 同vertex buffer
         createUniformBuffers();
         createDescriptorPool();
         createDescriptorSets();
@@ -893,12 +893,13 @@ private:
         }
     }
 
-    void createCommandPool() {
+    void createCommandPool() {// 创建 command pool必须绑定 queue family
         QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;// 允许单独reset从这个pool分配出的command buffer
+        // 用于每一帧重新录制 command buffer
+        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();// 指定刚刚找到的graphics queue
         if(VK_SUCCESS != vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool)) {
             throw std::runtime_error("failed to create command pool!");
         }
@@ -931,13 +932,20 @@ private:
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
 
+        // 创建 staging buffer : 
+        // HOST_VISIBLE : CPU可以直接访问
+        // HOST_COHERENT : CPU 写入后, 不需要手动 flush, GPU 也能看到更新
         createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
         void* data;
-        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data); // map 即将显存映射到CPU的地址空间
         memcpy(data, vertices.data(), (size_t) bufferSize);
         vkUnmapMemory(device, stagingBufferMemory);
 
+        // 创建真正的 vertex buffer
+        // TRANSFER_DST_BIT : 作为 copy 的目标 : 从 staging 到 vertex
+        // VERTEX_BUFFER_BIT : 声明要绑定 vertex buffer
+        // DEVICE_LOCAL_BIT : 这块内存位于本地显存
         createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
 
         copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
@@ -968,6 +976,7 @@ private:
     }
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+        // 临时分配一个 command buffer, 录制 copybuffer 的命令, 从而把 srcBuffer 中的内容拷贝 到 dstBuffer
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -997,7 +1006,7 @@ private:
 	    vkQueueWaitIdle(graphicsQueue);
 	
 	    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-}
+    }
 
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
