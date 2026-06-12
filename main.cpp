@@ -177,9 +177,9 @@ private:
         createCommandPool();// 创建 command pool需要指定 queue family
         createVertexBuffer();// 把系统内存中创建的vertices上传到GPU显存 vertexBuffer中
         createIndexBuffer();// 创建index buffer, 同vertex buffer
-        createUniformBuffers();
+        createUniformBuffers(); // 为每个in-flight frame 创建一个uniform buffer, 并map到CPU的地址空间
         createDescriptorPool();
-        createDescriptorSets();
+        createDescriptorSets();// 在descriptor pool中为每个帧分配 descriptor set, 并将其中的binding=0指向对应的uniform buffer
 
         createCommandBuffer();
         createSyncObjects();
@@ -1211,8 +1211,9 @@ private:
     }
 
     void createUniformBuffers() {
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+        VkDeviceSize bufferSize = sizeof(UniformBufferObject);//首先计算每个UBO buffer的大小
 
+        // 为每个帧准备一套 uniform buffer
         uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
         uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
         uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1222,7 +1223,9 @@ private:
             vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
         }
     }
+    // 为每一帧重新计算一组MVP矩阵, 并把它写入当前帧对应的 uniform buffer
     void updateUniformBuffer(uint32_t currentImage) {
+        // 开始时间只会初始化一次
         static auto startTime = std::chrono::high_resolution_clock::now();
         auto currentTime = std::chrono::high_resolution_clock::now();
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
@@ -1232,7 +1235,7 @@ private:
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
         ubo.proj[1][1] *= -1;
-        memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));   
+        memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
     }
 
     void createDescriptorPool() {
@@ -1250,6 +1253,7 @@ private:
     }
 
     void createDescriptorSets() {
+        // 首先要为每个 descriptor set指定layout
         std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
