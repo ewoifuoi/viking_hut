@@ -1034,6 +1034,7 @@ private:
     }
 
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+        // 每个 frame-in-flight 都有自己的 command buffer
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         if(VK_SUCCESS != vkBeginCommandBuffer(commandBuffer, &beginInfo)) {
@@ -1051,11 +1052,16 @@ private:
         renderPassInfo.clearValueCount = 1;
         renderPassInfo.pClearValues = &clearColor;
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+        // 注意 : 这里的 subpass_contents_inline 表示这个subpass内的命令都写在当前的 primary command buffer 里, 而不是secondary command buffer
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);// 为 command buffer 绑定图形管线,并指明是graphics而不是compute
 
         VkBuffer vertexBuffers[] = {vertexBuffer};
         VkDeviceSize offsets[] = {0};
+        // 绑定顶点缓冲和索引缓冲
+        // vertex buffer: firstBinding = 0 
+        // bindingCount = 1
+        // pBuffers = vertexBuffers
+        // pOffsets = offsets
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
